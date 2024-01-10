@@ -665,7 +665,14 @@ export const ConnectionPool: WsConnectionPool = {};
           invariant(context.loginPage, "loginPage is null");
           return await clickCaptchaAndFindSiteKey(context.loginPage);
         },
-        login: async (context, event): Promise<void | { next: string }> => {
+        login: async (context, event): Promise<void | { next: string, userId?:string, token?:string }> => {
+          if(process.env.DISCORD_TOKEN && process.env.DISCORD_USERID){
+            return {
+              next: "authenticated",
+              userId: process.env.DISCORD_USERID,
+              token: process.env.DISCORD_TOKEN
+            }
+          }
           invariant(process.env.DISCORD_EMAIL, "DISCORD_EMAIL not set");
           invariant(process.env.DISCORD_PASSWORD, "DISCORD_PASSWORD not set");
           invariant(context.loginPage, "loginPage is null");
