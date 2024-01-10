@@ -114,7 +114,7 @@ type LoginMachineService = {
   sendCaptchaChallenge: { data: { status: "waiting"; captchaId: string } };
   checkCaptchaChallenge: { data: { next: string } | void };
   engageCaptchaUIAndFindSiteKey: { data: { sitekey: string } };
-  sendCaptchaSolution: { data: { status: string } };
+  sendCaptchaSolution: { data: { status: string, token?: string, userId: string } };
   checkSolution: {
     data:
       | { status: "solved"; solution: string }
@@ -323,7 +323,7 @@ export const ConnectionPool: WsConnectionPool = {};
                 target: "captchaLoaded",
               },
               {
-                target: "authenticated",
+                saw: "sawAuthenticated",
                 actions: assign({
                   authorDiscordUserId: (context, event) => event.data.userId,
                   token: (context, event) => event.data.token,
@@ -377,10 +377,16 @@ export const ConnectionPool: WsConnectionPool = {};
         sendCaptchaSolution: {
           invoke: {
             src: "sendCaptchaSolution",
-            onDone: {
-              target: "emailVerification",
-              cond: "sawEmailVerification",
-            },
+            onDone: [
+              {
+                target: "emailVerification",
+                cond: "sawEmailVerification",
+              },
+              {
+                target: "login",
+                cond: "sawAuthenticated",
+              },
+            ],
             onError: "captchaLoaded",
           },
         },
@@ -541,6 +547,9 @@ export const ConnectionPool: WsConnectionPool = {};
         sawEmailVerification: (context, event) => {
           return event.data?.status === "verifyEmail";
         },
+        sawAuthenticated: (context, event) => {
+          return event.data?.status === "authenticated" && event.data?.userId && event.data?.token;
+        },
       },
       services: {
         createNewPage: async (context, event) => {
@@ -665,10 +674,14 @@ export const ConnectionPool: WsConnectionPool = {};
           invariant(context.loginPage, "loginPage is null");
           return await clickCaptchaAndFindSiteKey(context.loginPage);
         },
-        login: async (context, event): Promise<void | { next: string, userId?:string, token?:string }> => {
+        login: async (context, event): Promise<
+        | void
+        | { next: "captcha" }
+        | { status: "authenticated", userId?:string, token?:string }
+        > => {
           if(process.env.DISCORD_TOKEN && process.env.DISCORD_USERID){
             return {
-              next: "authenticated",
+              status: "authenticated",
               userId: process.env.DISCORD_USERID,
               token: process.env.DISCORD_TOKEN
             }

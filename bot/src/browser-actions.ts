@@ -121,9 +121,13 @@ export async function sendCaptcha(
   solution: string,
   discordUsername: string,
   discordPassword: string
-): Promise<{ status: "verifyEmail" | "success" }> {
+): Promise<
+  | { status: "verifyEmail" | "success" }
+  | { status: "authenticated", token: string, userId: string }
+  > {
+  let loginResults: any = null
   try {
-    const loginResults = await page.evaluate(discordInPageLogin, {
+    loginResults = await page.evaluate(discordInPageLogin, {
       solution,
       discordUsername,
       discordPassword,
@@ -133,13 +137,23 @@ export async function sendCaptcha(
     // {"code": 50035, "errors": {"login": {"_errors": [{"code": "ACCOUNT_LOGIN_VERIFICATION_EMAIL", "message": "New login location detected, please check your e-mail."}]}}, "message": "Invalid Form Body"}
     //when the error object is like above, we need to get the link from the email and click it
 
-    superstruct.assert(
-      loginResults,
-      superstruct.type({ code: superstruct.number() }),
-      "loginResults is null"
-    );
-    if (loginResults.code === 50035) {
-      return { status: "verifyEmail" };
+    if(!loginResults.code){
+      if(loginResults?.ticket && loginResults?.user_id){
+        return {
+          status: "authenticated",
+          userId: loginResults.user_id,
+          token: loginResults.ticket
+        }
+      }
+    }else{
+      superstruct.assert(
+        loginResults,
+        superstruct.type({ code: superstruct.number() }),
+        "loginResults is null"
+      );
+      if(loginResults.code === 50035){
+        return { status: "verifyEmail" };
+      }
     }
   } catch (e) {
     logger.error("Failed to send captcha solution", e);
@@ -160,7 +174,7 @@ export async function loginIntoChannel(
   password: string
 ): Promise<
   | { next: "captcha" }
-  | { next: "authenticated"; userId?: string; token?: string }
+  | { status: "authenticated"; userId?: string; token?: string }
   | void
 > {
   await page.goto(loginUrl);
@@ -243,7 +257,7 @@ export async function loginIntoChannel(
       return { next: "captcha" };
     }
   } catch (e) {
-    return { next: "authenticated", userId, token };
+    return { status: "authenticated", userId, token };
   }
 
   throw new Error("Failed to login into discord. Page url: " + page.url);
