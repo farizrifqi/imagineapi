@@ -13,8 +13,8 @@ if [ $botUserCreationExitStatus -eq 0 ]; then
     node ./user-token.js $BOT_USER_ID $BOT_TOKEN $DB_HOST $DB_PORT $DB_USER $DB_PASSWORD $DB_DATABASE
     
     # standar user
-    echo "Creating standard user"
-    npx directus users create --email $STANDARD_USER_EMAIL --password $STANDARD_USER_PASSWORD --role $STANDARD_ROLE_ID
+    echo "Creating administrator user"
+    npx directus users create --email $STANDARD_USER_EMAIL --password $STANDARD_USER_PASSWORD --role "0ebbd2c2-0d46-402c-8a87-939024e6abab"
 else
     echo "Bot user already exists"
     echo "Not creating standard user either"
